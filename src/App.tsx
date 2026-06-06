@@ -1,33 +1,32 @@
 import { useState } from 'react';
 import { isLoggedIn } from './api/client';
 import LoginScreen from './screens/LoginScreen';
-import DocumentListScreen from './screens/DocumentListScreen';
-import DocumentDetailScreen from './screens/DocumentDetailScreen';
+import ProfileListScreen from './screens/ProfileListScreen';
+import ProfileReviewScreen from './screens/ProfileReviewScreen';
 
-type Screen = 'login' | 'list' | 'detail';
+type Screen = 'login' | 'profiles' | 'profileReview';
 
 function App() {
-  const [screen, setScreen] = useState<Screen>(isLoggedIn() ? 'list' : 'login');
-  const [selectedDocId, setSelectedDocId] = useState<string | null>(null);
+  const [screen, setScreen] = useState<Screen>(isLoggedIn() ? 'profiles' : 'login');
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
-  const handleLogin = () => setScreen('list');
+  const handleLogin = () => setScreen('profiles');
   const handleLogout = () => setScreen('login');
-  const handleSelectDoc = (id: string) => {
-    setSelectedDocId(id);
-    setScreen('detail');
+  const handleSelectProfile = (profileId: string) => {
+    setSelectedProfileId(profileId);
+    setScreen('profileReview');
   };
-  const handleBack = () => {
-    setSelectedDocId(null);
-    setScreen('list');
+  const handleBackFromProfileReview = () => {
+    setScreen('profiles');
   };
 
   if (screen === 'login') {
     return <LoginScreen onLogin={handleLogin} />;
   }
-  if (screen === 'detail' && selectedDocId) {
-    return <DocumentDetailScreen documentId={selectedDocId} onBack={handleBack} />;
+  if (screen === 'profileReview' && selectedProfileId) {
+    return <ProfileReviewScreen profileId={selectedProfileId} onBack={handleBackFromProfileReview} />;
   }
-  return <DocumentListScreen onSelectDocument={handleSelectDoc} onLogout={handleLogout} />;
+  return <ProfileListScreen onSelectProfile={handleSelectProfile} onLogout={handleLogout} />;
 }
 
 export default App;
