@@ -12,18 +12,20 @@ interface DocumentTabProps {
 }
 
 export default function DocumentTab({ bundle }: DocumentTabProps) {
-  const rawDocuments = Array.isArray(bundle.documents)
-    ? bundle.documents.filter(
-        (d): d is ReviewBundle["documents"][number] =>
-          !!d &&
-          typeof d === "object" &&
-          typeof (d as { id?: unknown }).id === "string" &&
-          (d as { id: string }).id.trim().length > 0,
-      )
-    : [];
   const documents: DocumentViewItem[] = useMemo(
-    () => rawDocuments.map(mapDocumentToViewItem),
-    [rawDocuments],
+    () => {
+      const rawDocuments = Array.isArray(bundle.documents)
+        ? bundle.documents.filter(
+            (d): d is ReviewBundle["documents"][number] =>
+              !!d &&
+              typeof d === "object" &&
+              typeof (d as { id?: unknown }).id === "string" &&
+              (d as { id: string }).id.trim().length > 0,
+          )
+        : [];
+      return rawDocuments.map(mapDocumentToViewItem);
+    },
+    [bundle.documents],
   );
 
   const [activeDocumentId, setActiveDocumentId] = useState(documents[0]?.id ?? "");

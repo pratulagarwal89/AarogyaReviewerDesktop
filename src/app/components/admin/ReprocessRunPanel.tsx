@@ -33,8 +33,11 @@ export default function ReprocessRunPanel({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError("");
+    });
     listReprocessRuns(documentId, 10)
       .then((res) => {
         if (!cancelled) setRuns(res.items);
