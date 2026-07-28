@@ -41,19 +41,29 @@ export default function DocumentViewer({ documents, selectedDocumentId, onSelect
   };
 
   useEffect(() => {
-    if (selectedDocument?.type !== "pdf" || !selectedDocument.id) {
-      setPdfBlobUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      setPdfLoadError(null);
-      setPdfRenderError(null);
-      return;
-    }
     let cancelled = false;
     let blobUrl: string | null = null;
-    setPdfLoadError(null);
-    setPdfRenderError(null);
+
+    if (selectedDocument?.type !== "pdf" || !selectedDocument.id) {
+      queueMicrotask(() => {
+        if (cancelled) return;
+        setPdfBlobUrl((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return null;
+        });
+        setPdfLoadError(null);
+        setPdfRenderError(null);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setPdfLoadError(null);
+      setPdfRenderError(null);
+    });
     fetchDocumentPdf(selectedDocument.id)
       .then((blob) => {
         if (cancelled) {

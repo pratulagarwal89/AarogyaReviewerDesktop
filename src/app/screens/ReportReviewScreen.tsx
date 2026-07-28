@@ -12,6 +12,7 @@ import AdminLayout from "../components/admin/AdminLayout";
 import StatusBadge from "../components/admin/StatusBadge";
 import StructuredDataForm from "../components/admin/StructuredDataForm";
 import AdminLabValuesTable from "../components/admin/AdminLabValuesTable";
+import SimplifiedFlutterView from "../components/document/SimplifiedFlutterView";
 import ReprocessModal from "../components/admin/ReprocessModal";
 import ReprocessRunPanel from "../components/admin/ReprocessRunPanel";
 import ConfirmDialog from "../components/admin/ConfirmDialog";
@@ -36,6 +37,7 @@ function ReportReviewBody() {
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
   const [intakeCollapsed, setIntakeCollapsed] = useState(false);
   const [labsCollapsed, setLabsCollapsed] = useState(false);
+  const [viewMode, setViewMode] = useState<"reviewer" | "enduser">("reviewer");
 
   useEffect(() => {
     if (!documentId) return;
@@ -178,23 +180,58 @@ function ReportReviewBody() {
         </div>
       </section>
 
-      <div className="flex h-[calc(100vh-280px)] min-h-[520px] flex-col gap-4 lg:flex-row">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wide text-slate-500">View</span>
+        <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
+          <button
+            type="button"
+            onClick={() => setViewMode("reviewer")}
+            className={`rounded px-3 py-1 text-xs font-medium ${
+              viewMode === "reviewer" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Reviewer view
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("enduser")}
+            className={`rounded px-3 py-1 text-xs font-medium ${
+              viewMode === "enduser" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            End-user (Flutter) view
+          </button>
+        </div>
+        <span className="text-xs text-slate-400">
+          {viewMode === "reviewer"
+            ? "Raw extracted document_intake + lab_report data"
+            : "Exactly what the mobile app shows for this document"}
+        </span>
+      </div>
+
+      <div className="flex h-[calc(100vh-320px)] min-h-[520px] flex-col gap-4 lg:flex-row">
         <ReportPreview
           document={document}
           collapsed={previewCollapsed}
           onToggleCollapsed={() => setPreviewCollapsed((v) => !v)}
         />
-        <StructuredDataForm
-          document={document}
-          onRefresh={refresh}
-          collapsed={intakeCollapsed}
-          onToggleCollapsed={() => setIntakeCollapsed((v) => !v)}
-        />
-        <AdminLabValuesTable
-          document={document}
-          collapsed={labsCollapsed}
-          onToggleCollapsed={() => setLabsCollapsed((v) => !v)}
-        />
+        {viewMode === "reviewer" ? (
+          <>
+            <StructuredDataForm
+              document={document}
+              onRefresh={refresh}
+              collapsed={intakeCollapsed}
+              onToggleCollapsed={() => setIntakeCollapsed((v) => !v)}
+            />
+            <AdminLabValuesTable
+              document={document}
+              collapsed={labsCollapsed}
+              onToggleCollapsed={() => setLabsCollapsed((v) => !v)}
+            />
+          </>
+        ) : (
+          <SimplifiedFlutterView documentId={document.id} filename={document.filename} />
+        )}
       </div>
 
       <section className="rounded-md border border-slate-200 bg-white p-4">

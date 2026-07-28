@@ -14,6 +14,7 @@ interface ExtractedDataPanelProps {
 }
 
 export default function ExtractedDataPanel({ documentId, bundle: _bundle }: ExtractedDataPanelProps) {
+  void _bundle;
   const [extracted, setExtracted] = useState<ReturnType<typeof documentDetailToExtractedView> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

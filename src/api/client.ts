@@ -478,6 +478,35 @@ export async function verifyReport(documentId: string): Promise<{ verified_at: s
   );
 }
 
+/**
+ * The exact payload the Flutter simplified lab screen consumes
+ * (`GET /imported-files/:id/simplified-values`). `tests` is present only when a
+ * lab_report exists for this document with status='Processed' and non-empty
+ * extracted_values; otherwise `available` is false and `tests` is empty. The
+ * document id here is the same document_intake id used by the reviewer
+ * endpoints, so both lenses key off one id.
+ */
+export interface SimplifiedValuesResponse {
+  available: boolean;
+  tests: Array<Record<string, unknown>>;
+  source: string;
+}
+
+export async function getSimplifiedValues(documentId: string): Promise<SimplifiedValuesResponse> {
+  const res = await fetch(getBaseUrl() + '/imported-files/' + documentId + '/simplified-values', {
+    headers: getJsonAuthHeaders(),
+  });
+  if (!res.ok) {
+    throw new Error(await readErrorMessage(res, 'Failed to fetch simplified values'));
+  }
+  const data = (await res.json()) as Partial<SimplifiedValuesResponse>;
+  return {
+    available: Boolean(data.available),
+    tests: Array.isArray(data.tests) ? data.tests : [],
+    source: typeof data.source === 'string' ? data.source : 'none',
+  };
+}
+
 export function setApiBaseUrl(url: string) {
   localStorage.setItem(API_BASE_URL_KEY, url);
 }
