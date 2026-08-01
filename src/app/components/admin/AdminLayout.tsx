@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { LogOut, Users } from "lucide-react";
+import { LogOut, ShieldCheck, Users } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { clearTokens } from "../../../api/client";
 import Button from "../common/Button";
@@ -11,6 +11,7 @@ interface AdminLayoutProps {
 
 const navItems = [
   { to: "/admin/users", label: "Users", icon: Users },
+  { to: "/admin/verification", label: "Verification", icon: ShieldCheck },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {

@@ -6,7 +6,7 @@
 // ever yields the MASKED evidence — there is no path here to the original object.
 // ============================================================================
 
-import { getBaseUrl, getJsonAuthHeaders, readErrorMessage } from './client';
+import { getBaseUrl, getJsonAuthHeaders } from './client';
 
 export type VersionKind = 'primary' | 'verifier_filtered' | 'reviewer_corrected';
 

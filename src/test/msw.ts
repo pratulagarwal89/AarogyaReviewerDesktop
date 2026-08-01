@@ -103,6 +103,11 @@ export const handlers = [
   http.post(BASE + '/review/verification-cases/' + CASE_ID + '/retry', () =>
     HttpResponse.json({ case_id: CASE_ID, verification_status: 'queued', enqueued: true }),
   ),
+
+  // End-user (Flutter) simplified view — used by the case screen's embedded panel.
+  http.get(BASE + '/imported-files/:id/simplified-values', () =>
+    HttpResponse.json({ available: false, source: 'none', tests: [] }),
+  ),
 ];
 
 export const server = setupServer(...handlers);
