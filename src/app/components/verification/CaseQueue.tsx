@@ -61,8 +61,11 @@ export default function CaseQueue() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError('');
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setLoading(true);
+      setError('');
+    });
     listVerificationCases(params)
       .then((res) => {
         if (!cancelled) setData({ count: res.count, cases: res.cases });
@@ -80,7 +83,13 @@ export default function CaseQueue() {
 
   // Keep the search box in sync when filters are cleared/deep-linked externally.
   useEffect(() => {
-    setSearchText(searchParams.get('q') ?? '');
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (!cancelled) setSearchText(searchParams.get('q') ?? '');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams]);
 
   const setParam = (key: string, value: string) => {

@@ -44,9 +44,12 @@ export default function CurrentVsProposedDiff({
 
   useEffect(() => {
     let cancelled = false;
-    setError('');
-    setCurrent(null);
-    setProposed(null);
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setError('');
+      setCurrent(null);
+      setProposed(null);
+    });
     Promise.all([
       getReportVersion(reportId, currentVersionId),
       getReportVersion(reportId, proposedVersionId),
