@@ -2,7 +2,7 @@ const API_BASE_URL_KEY = 'api_base_url';
 const ACCESS_TOKEN_KEY = 'access_token';
 const REFRESH_TOKEN_KEY = 'refresh_token';
 
-function getBaseUrl(): string {
+export function getBaseUrl(): string {
   return localStorage.getItem(API_BASE_URL_KEY) || 'http://localhost:8080';
 }
 
@@ -138,7 +138,7 @@ export interface ReviewProfileListItem {
   updated_at: string;
 }
 
-function getJsonAuthHeaders(): HeadersInit {
+export function getJsonAuthHeaders(): HeadersInit {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY);
   return token ? { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' };
 }
@@ -226,7 +226,7 @@ export async function listReviewProfiles(params: { q?: string } = {}): Promise<{
  * non-JSON bodies (e.g. Gin's `404 page not found` plain text when the
  * backend hasn't been restarted with new routes).
  */
-async function readErrorMessage(res: Response, fallback: string): Promise<string> {
+export async function readErrorMessage(res: Response, fallback: string): Promise<string> {
   const text = await res.text().catch(() => '');
   if (text) {
     try {

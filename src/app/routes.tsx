@@ -4,6 +4,8 @@ import LoginScreen from "./screens/LoginScreen";
 import AdminUsersScreen from "./screens/AdminUsersScreen";
 import ProfileReportsScreen from "./screens/ProfileReportsScreen";
 import ReportReviewScreen from "./screens/ReportReviewScreen";
+import VerificationDashboardScreen from "./screens/VerificationDashboardScreen";
+import VerificationCaseScreen from "./screens/VerificationCaseScreen";
 import RequireAuth from "./components/auth/RequireAuth";
 
 export default function AppRoutes() {
@@ -35,6 +37,22 @@ export default function AppRoutes() {
         element={
           <RequireAuth>
             <ReportReviewScreen />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/verification"
+        element={
+          <RequireAuth>
+            <VerificationDashboardScreen />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/admin/verification/:caseId"
+        element={
+          <RequireAuth>
+            <VerificationCaseScreen />
           </RequireAuth>
         }
       />
