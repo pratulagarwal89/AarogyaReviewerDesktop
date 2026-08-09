@@ -108,9 +108,12 @@ describe('VerificationCaseScreen — thin slice', () => {
       expect(screen.getByRole('button', { name: /Activate proposal/i })).toBeDisabled(),
     );
     expect(screen.getByText(/Activation blocked: masked evidence unavailable/i)).toBeInTheDocument();
-    // Rollback to the verifier_filtered proposal is likewise disabled in history.
-    const rollbackButtons = screen.getAllByRole('button', { name: /Roll back/i });
-    expect(rollbackButtons.some((b) => (b as HTMLButtonElement).disabled)).toBe(true);
+    // The verifier_filtered proposal is a forward version (newer than the active
+    // primary): it is activated from the case actions above, never rolled back
+    // "to". So version history offers NO Roll back button for it — it shows
+    // "awaiting activation" instead.
+    expect(screen.queryByRole('button', { name: /Roll back/i })).not.toBeInTheDocument();
+    expect(screen.getByText(/awaiting activation/i)).toBeInTheDocument();
   });
 
   it('allows rollback to the original primary without evidence', async () => {

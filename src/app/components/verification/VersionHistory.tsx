@@ -14,10 +14,14 @@ const KIND_STYLE: Record<VersionKind, string> = {
 };
 
 /**
- * Immutable version timeline + activation audit. Offers rollback to any prior
- * version except the currently-active one. Rollback to a verifier_filtered
- * version is disabled here when its masked evidence is known to be unavailable
- * (the backend enforces the same gate regardless).
+ * Immutable version timeline + activation audit. Offers rollback ONLY to prior
+ * versions (version_number below the active one). The currently-active version
+ * shows "current"; a version NEWER than the active one is an un-activated
+ * proposal shown as "awaiting activation" — it must be activated from the case
+ * actions (which also resolves the verification case), never rolled back "to"
+ * (the raw /rollback path would publish it while leaving the case unresolved).
+ * Rollback to a verifier_filtered version is disabled here when its masked
+ * evidence is known to be unavailable (the backend enforces the same gate).
  */
 export default function VersionHistory({
   reportId,
@@ -62,8 +66,19 @@ export default function VersionHistory({
         ) : (
           <>
             <ul className="space-y-2">
-              {data.versions.map((v) => {
+              {(() => {
+                const activeVersion = data.versions.find((v) => v.id === data.active_version_id);
+                const activeVersionNumber = activeVersion?.version_number;
+                return data.versions.map((v) => {
                 const isActive = v.id === data.active_version_id;
+                // A version newer than the active one is a forward proposal
+                // awaiting activation — not a rollback target. Activation happens
+                // from the case actions and also resolves the case; a raw rollback
+                // "to" it would publish the version but leave the case unresolved.
+                const isForwardProposal =
+                  !isActive &&
+                  activeVersionNumber !== undefined &&
+                  v.version_number > activeVersionNumber;
                 const evidenceBlocked =
                   v.kind === 'verifier_filtered' && evidenceUnavailableVersionIds?.has(v.id);
                 return (
@@ -93,6 +108,13 @@ export default function VersionHistory({
                     </div>
                     {isActive ? (
                       <span className="text-xs text-slate-400">current</span>
+                    ) : isForwardProposal ? (
+                      <span
+                        className="text-xs text-slate-400"
+                        title="Proposed version — activate it from the case actions above. Rollback is only for prior versions."
+                      >
+                        awaiting activation
+                      </span>
                     ) : (
                       <button
                         type="button"
@@ -110,7 +132,8 @@ export default function VersionHistory({
                     )}
                   </li>
                 );
-              })}
+                });
+              })()}
             </ul>
 
             <h4 className="mt-4 mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">Activation log</h4>
