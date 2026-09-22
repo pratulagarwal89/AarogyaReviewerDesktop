@@ -13,14 +13,26 @@
 // and no reprocess_required flag. We derive UI status from what is available
 // and gracefully read verify fields if the backend ever supplies them.
 
-import type { DocumentListItem, DocumentDetail, ReviewLabReport } from "../../api/client";
+import type {
+  DocumentListItem,
+  DocumentDetail,
+  ReviewImagingReport,
+  ReviewLabReport,
+} from "../../api/client";
 
 export type UiReportStatus =
   | "verified"
   | "needs_review"
   | "failed"
   | "reprocess"
-  | "processing";
+  | "processing"
+  // Imaging-only. `blocked` earns its own bucket rather than folding into
+  // "failed": the privacy gate refusing to transmit pages it could not
+  // de-identify is the pipeline working, and a reviewer needs to tell the two
+  // apart at a glance. `partial` likewise — there IS a readable report, just
+  // not of every page.
+  | "blocked"
+  | "partial";
 
 export interface StatusSourceInput {
   /** document_intake.status (pending|processing|completed|failed) */
@@ -52,6 +64,30 @@ export function deriveReportStatus(input: StatusSourceInput): UiReportStatus {
   }
   // intake === "completed" or anything else lands here.
   return "needs_review";
+}
+
+/**
+ * The list-row status for an imaging document.
+ *
+ * Imaging carries its own terminal vocabulary on imaging_reports, so this reads
+ * that rather than document_intake.status — which for a graduated record only
+ * says OCR finished, not what the transcription did.
+ */
+export function deriveStatusFromImagingRow(imaging: ReviewImagingReport): UiReportStatus {
+  switch (imaging.extraction_status) {
+    case "pending":
+      return "processing";
+    case "failed":
+      return "failed";
+    case "blocked":
+      return "blocked";
+    case "partial":
+      return "partial";
+    case "succeeded":
+      return "needs_review";
+    default:
+      return "needs_review";
+  }
 }
 
 /** Convenience helper for the reports table row given a document + lab_report. */
@@ -87,5 +123,9 @@ export function statusLabel(status: UiReportStatus): string {
       return "Reprocess Required";
     case "processing":
       return "Processing";
+    case "blocked":
+      return "Blocked (privacy)";
+    case "partial":
+      return "Partial";
   }
 }

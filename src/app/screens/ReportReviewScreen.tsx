@@ -12,6 +12,7 @@ import AdminLayout from "../components/admin/AdminLayout";
 import StatusBadge from "../components/admin/StatusBadge";
 import StructuredDataForm from "../components/admin/StructuredDataForm";
 import AdminLabValuesTable from "../components/admin/AdminLabValuesTable";
+import ImagingTranscriptPanel from "../components/admin/ImagingTranscriptPanel";
 import SimplifiedFlutterView from "../components/document/SimplifiedFlutterView";
 import ReprocessModal from "../components/admin/ReprocessModal";
 import ReprocessRunPanel from "../components/admin/ReprocessRunPanel";
@@ -20,6 +21,7 @@ import ReportPreview from "../components/admin/ReportPreview";
 import Button from "../components/common/Button";
 import { useToast } from "../components/admin/useToast";
 import { deriveStatusFromDocumentDetail } from "../utils/reportStatus";
+import { imagingStatusStyle } from "../utils/imagingStatus";
 import { formatDate } from "../../utils/dateUtils";
 
 function ReportReviewBody() {
@@ -128,7 +130,18 @@ function ReportReviewBody() {
   }
 
   const status = deriveStatusFromDocumentDetail(document);
-  const collected = document.lab_report_date ? formatDate(document.lab_report_date) : "—";
+  // An imaging document is one that graduated to an imaging_reports row. The
+  // backend serves that record on the same document detail the lab record comes
+  // on, so its presence — not the document_type string a user may have picked —
+  // is what decides which lens the reviewer gets.
+  const isImaging = Boolean(document.imaging_report_id);
+  const collected = isImaging
+    ? document.imaging_report_date
+      ? formatDate(document.imaging_report_date)
+      : "—"
+    : document.lab_report_date
+      ? formatDate(document.lab_report_date)
+      : "—";
 
   return (
     <>
@@ -149,8 +162,12 @@ function ReportReviewBody() {
                 <dd className="text-slate-900">{document.document_type || "—"}</dd>
               </div>
               <div>
-                <dt className="uppercase tracking-wide">Lab</dt>
-                <dd className="text-slate-900">{document.lab_name || "—"}</dd>
+                <dt className="uppercase tracking-wide">{isImaging ? "Extraction" : "Lab"}</dt>
+                <dd className="text-slate-900">
+                  {isImaging
+                    ? imagingStatusStyle(document.imaging_extraction_status).label
+                    : document.lab_name || "—"}
+                </dd>
               </div>
               <div>
                 <dt className="uppercase tracking-wide">Collected</dt>
@@ -180,7 +197,10 @@ function ReportReviewBody() {
         </div>
       </section>
 
-      <div className="flex items-center gap-2">
+      {/* The end-user lens reads /imported-files/:id/simplified-values, which is a
+          lab-values surface. An imaging record has none, so the toggle is not
+          offered rather than shown answering "unavailable". */}
+      <div className={`flex items-center gap-2 ${isImaging ? "hidden" : ""}`}>
         <span className="text-xs font-medium uppercase tracking-wide text-slate-500">View</span>
         <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5">
           <button
@@ -215,7 +235,16 @@ function ReportReviewBody() {
           collapsed={previewCollapsed}
           onToggleCollapsed={() => setPreviewCollapsed((v) => !v)}
         />
-        {viewMode === "reviewer" ? (
+        {isImaging ? (
+          // Original on the left, transcription on the right — the same
+          // side-by-side the lab review uses, with the panel that carries this
+          // document type's processed clinical representation.
+          <ImagingTranscriptPanel
+            document={document}
+            collapsed={labsCollapsed}
+            onToggleCollapsed={() => setLabsCollapsed((v) => !v)}
+          />
+        ) : viewMode === "reviewer" ? (
           <>
             <StructuredDataForm
               document={document}

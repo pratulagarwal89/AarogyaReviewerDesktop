@@ -8,21 +8,23 @@ import {
   type AdminUserProfileItem,
   type DocumentListItem,
   type ReviewBundle,
+  type ReviewImagingReport,
   type ReviewLabReport,
 } from "../../api/client";
 import AdminLayout from "../components/admin/AdminLayout";
 import StatusBadge from "../components/admin/StatusBadge";
 import Button from "../components/common/Button";
 import { ageFromDob, formatDate } from "../../utils/dateUtils";
-import { deriveStatusFromDocumentRow } from "../utils/reportStatus";
+import { deriveStatusFromDocumentRow, deriveStatusFromImagingRow } from "../utils/reportStatus";
 
 interface ReportsTableProps {
   documents: DocumentListItem[];
   labByDocument: Map<string, ReviewLabReport>;
+  imagingByDocument: Map<string, ReviewImagingReport>;
   onOpen: (documentId: string) => void;
 }
 
-function ReportsTable({ documents, labByDocument, onOpen }: ReportsTableProps) {
+function ReportsTable({ documents, labByDocument, imagingByDocument, onOpen }: ReportsTableProps) {
   if (documents.length === 0) {
     return (
       <div className="rounded-md border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-600">
@@ -38,10 +40,10 @@ function ReportsTable({ documents, labByDocument, onOpen }: ReportsTableProps) {
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-600">
             <tr>
               <th className="w-[28%] px-4 py-3">Document</th>
-              <th className="w-[18%] px-4 py-3">Lab</th>
+              <th className="w-[18%] px-4 py-3">Lab / Source</th>
               <th className="w-[12%] px-4 py-3">Collected</th>
               <th className="w-[12%] px-4 py-3">Uploaded</th>
-              <th className="w-[8%] px-4 py-3 text-right">Tests</th>
+              <th className="w-[8%] px-4 py-3 text-right">Tests / Pages</th>
               <th className="w-[12%] px-4 py-3">Status</th>
               <th className="w-[10%] px-4 py-3 text-right">Action</th>
             </tr>
@@ -49,10 +51,21 @@ function ReportsTable({ documents, labByDocument, onOpen }: ReportsTableProps) {
           <tbody>
             {documents.map((doc) => {
               const lab = labByDocument.get(doc.id);
-              const status = deriveStatusFromDocumentRow(doc, lab);
-              const collected = lab?.report_date ? formatDate(lab.report_date) : "—";
+              // An imaging document is one that graduated to imaging_reports.
+              // Its state lives on that record, not on the intake row, which by
+              // then only says OCR finished.
+              const imaging = imagingByDocument.get(doc.id);
+              const status = imaging
+                ? deriveStatusFromImagingRow(imaging)
+                : deriveStatusFromDocumentRow(doc, lab);
+              const reportDate = imaging ? imaging.report_date : lab?.report_date;
+              const collected = reportDate ? formatDate(reportDate) : "—";
               const uploaded = doc.created_at ? formatDate(doc.created_at) : "—";
-              const tests = countTests(lab?.extracted_values);
+              const tests = imaging
+                ? imaging.pages_total == null
+                  ? "—"
+                  : `${imaging.pages_verified ?? 0}/${imaging.pages_total}`
+                : countTests(lab?.extracted_values);
               return (
                 <tr
                   key={doc.id}
@@ -76,7 +89,9 @@ function ReportsTable({ documents, labByDocument, onOpen }: ReportsTableProps) {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-3 align-top text-slate-700">{lab?.lab_name || "—"}</td>
+                  <td className="px-4 py-3 align-top text-slate-700">
+                    {imaging ? `Imaging · ${imaging.lane || "—"}` : lab?.lab_name || "—"}
+                  </td>
                   <td className="px-4 py-3 align-top text-slate-700">{collected}</td>
                   <td className="px-4 py-3 align-top text-slate-700">{uploaded}</td>
                   <td className="px-4 py-3 align-top text-right text-slate-700">{tests}</td>
@@ -193,12 +208,23 @@ export default function ProfileReportsScreen() {
     return map;
   }, [bundle]);
 
+  const imagingByDocument = useMemo(() => {
+    const map = new Map<string, ReviewImagingReport>();
+    for (const imaging of bundle?.imaging_reports ?? []) {
+      if (imaging.document_source) map.set(imaging.document_source, imaging);
+    }
+    return map;
+  }, [bundle]);
+
   const needsReviewCount = useMemo(() => {
     return documents.filter((doc) => {
-      const status = deriveStatusFromDocumentRow(doc, labByDocument.get(doc.id));
+      const imaging = imagingByDocument.get(doc.id);
+      const status = imaging
+        ? deriveStatusFromImagingRow(imaging)
+        : deriveStatusFromDocumentRow(doc, labByDocument.get(doc.id));
       return status !== "verified";
     }).length;
-  }, [documents, labByDocument]);
+  }, [documents, imagingByDocument, labByDocument]);
 
   const handleOpen = useCallback(
     (documentId: string) => {
@@ -283,6 +309,7 @@ export default function ProfileReportsScreen() {
         <ReportsTable
           documents={documents}
           labByDocument={labByDocument}
+          imagingByDocument={imagingByDocument}
           onOpen={handleOpen}
         />
       )}

@@ -14,7 +14,7 @@ interface ReprocessModalProps {
   onConfirm: (payload: ReprocessRequest) => Promise<void>;
 }
 
-type Preset = "full" | "reuse_ocr" | "custom";
+type Preset = "full" | "reuse_ocr" | "imaging" | "custom";
 
 interface StageOption {
   key: ReprocessStage;
@@ -49,6 +49,13 @@ const STAGE_OPTIONS: StageOption[] = [
       doc?.plain_text_searchable ? null : "OCR text is missing — run OCR first.",
   },
   {
+    key: "imaging",
+    label: "Imaging transcription",
+    hint: "Re-runs routing, redaction, the privacy gates and transcription on the original upload.",
+    disabledReason: (doc) =>
+      doc?.imaging_report_id ? null : "This document has no imaging record.",
+  },
+  {
     key: "lab_values",
     label: "Lab values (LLM)",
     hint: "Refreshes the confirmed lab_reports row's extracted_values from structured_tables.",
@@ -64,7 +71,11 @@ const STAGE_OPTIONS: StageOption[] = [
 ];
 
 export default function ReprocessModal({ open, documentId, document, onClose, onConfirm }: ReprocessModalProps) {
-  const [preset, setPreset] = useState<Preset>("reuse_ocr");
+  // An imaging document has exactly one meaningful reprocess, so that is what
+  // the dialog opens on; the lab presets stay the default for everything else.
+  const isImaging = Boolean(document?.imaging_report_id);
+  const defaultPreset: Preset = isImaging ? "imaging" : "reuse_ocr";
+  const [preset, setPreset] = useState<Preset>(defaultPreset);
   const [stages, setStages] = useState<Set<ReprocessStage>>(new Set());
   const [overwrite, setOverwrite] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -73,14 +84,14 @@ export default function ReprocessModal({ open, documentId, document, onClose, on
   useEffect(() => {
     if (!open) {
       queueMicrotask(() => {
-        setPreset("reuse_ocr");
+        setPreset(defaultPreset);
         setStages(new Set());
         setOverwrite(false);
         setSubmitting(false);
         setError("");
       });
     }
-  }, [open]);
+  }, [open, defaultPreset]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,10 +103,17 @@ export default function ReprocessModal({ open, documentId, document, onClose, on
   }, [open, onClose, submitting]);
 
   const isConfirmed = document ? document.status === "completed" && !!document.lab_report_id : false;
+  const blockedNotice =
+    isImaging && document?.imaging_extraction_status === "blocked";
 
   const summary = useMemo(() => {
     if (preset === "full") return "Re-runs OCR, then patient + doc type + lab values.";
     if (preset === "reuse_ocr") return "Skips OCR. Re-runs patient + doc type + lab values from stored OCR.";
+    if (preset === "imaging")
+      return (
+        "Re-reads the original upload through the imaging pipeline and replaces this " +
+        "record's transcription. Profile, report date and title are left as they are."
+      );
     if (stages.size === 0) return "Pick one or more stages to run.";
     return `Runs: ${[...stages].join(", ")}.`;
   }, [preset, stages]);
@@ -115,6 +133,11 @@ export default function ReprocessModal({ open, documentId, document, onClose, on
     }
     if (preset === "reuse_ocr") {
       return { scope: "reuse_ocr", overwrite, async: true };
+    }
+    if (preset === "imaging") {
+      // A stage, not a scope: it re-derives the imaging record's clinical
+      // content and leaves every intake stage alone.
+      return { scope: "stages", stages: ["imaging"], overwrite, async: true };
     }
     if (stages.size === 0) return null;
     return {
@@ -159,6 +182,14 @@ export default function ReprocessModal({ open, documentId, document, onClose, on
         </h2>
         <p className="mt-1 text-xs text-slate-500">{summary}</p>
 
+        {blockedNotice ? (
+          <div className="mt-3 rounded-md border border-violet-200 bg-violet-50 p-3 text-xs text-violet-900">
+            Every page of this record was withheld by the privacy gate. Reprocessing offers
+            it to the gate again with the current redaction logic — it does not bypass it,
+            and the record stays blocked if the pages still cannot be de-identified.
+          </div>
+        ) : null}
+
         {isConfirmed ? (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
             This document is already confirmed. Reprocess will refresh values in place; changes to
@@ -170,6 +201,15 @@ export default function ReprocessModal({ open, documentId, document, onClose, on
 
         <fieldset className="mt-4 space-y-2 text-sm" disabled={submitting}>
           <legend className="sr-only">Reprocess scope</legend>
+          {isImaging ? (
+            <Preset
+              id="imaging"
+              label="Re-run imaging transcription"
+              hint="Re-reads the original upload: routing, redaction, privacy gates, transcription."
+              checked={preset === "imaging"}
+              onChange={() => setPreset("imaging")}
+            />
+          ) : null}
           <Preset
             id="reuse"
             label="Reuse existing OCR"

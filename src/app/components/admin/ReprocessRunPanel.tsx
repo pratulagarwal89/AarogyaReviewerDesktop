@@ -4,6 +4,7 @@ import {
   getReprocessRun,
   listReprocessRuns,
   type ReprocessDriftWarning,
+  type ReprocessImagingOutcome,
   type ReprocessLabValuesOutcome,
   type ReprocessRun,
   type ReprocessStageOutcome,
@@ -119,6 +120,7 @@ export default function ReprocessRunPanel({
 function RunCard({ run }: { run: ReprocessRun }) {
   const stageOutcomes = run.outcomes?.stages ?? [];
   const labOutcome = run.outcomes?.lab_values ?? null;
+  const imagingOutcome = run.outcomes?.imaging ?? null;
   const drift = run.drift_warnings ?? [];
   return (
     <div className="rounded-md border border-slate-200 bg-white p-3 text-sm">
@@ -150,6 +152,12 @@ function RunCard({ run }: { run: ReprocessRun }) {
       {labOutcome ? (
         <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 p-2 text-xs">
           <LabValuesRow outcome={labOutcome} />
+        </div>
+      ) : null}
+
+      {imagingOutcome ? (
+        <div className="mt-2 rounded-md border border-slate-100 bg-slate-50 p-2 text-xs">
+          <ImagingRow outcome={imagingOutcome} />
         </div>
       ) : null}
 
@@ -202,6 +210,46 @@ function LabValuesRow({ outcome }: { outcome: ReprocessLabValuesOutcome }) {
       </div>
       <div className="text-slate-500">
         {outcome.tests_count != null ? <span>{outcome.tests_count} tests</span> : null}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The imaging outcome, reported as what happened to the RECORD — the run waits
+ * for the worker, so "queued" is not the answer a reviewer is left with.
+ *
+ * The previous state is shown beside the new one because that is the question
+ * a reviewer is actually asking after a reprocess: did this change anything?
+ * (blocked → succeeded is the one the redaction work exists for.)
+ */
+function ImagingRow({ outcome }: { outcome: ReprocessImagingOutcome }) {
+  const settled = outcome.extraction_status;
+  const previous = outcome.previous_extraction_status;
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div className="min-w-0">
+        <span className="font-medium text-slate-900">imaging</span>
+        <span className="ml-2 text-slate-500">
+          {settled ? `${previous ?? "—"} → ${settled}` : outcome.status}
+        </span>
+        {outcome.reason ? <span className="ml-2 text-slate-500">— {outcome.reason}</span> : null}
+        {outcome.status === "still_running" ? (
+          <span className="ml-2 text-slate-500">
+            — still transcribing; reopen this record shortly
+          </span>
+        ) : null}
+        {outcome.error ? <span className="ml-2 text-rose-700">— {outcome.error}</span> : null}
+      </div>
+      <div className="flex flex-shrink-0 items-center gap-2 text-slate-500">
+        {outcome.pages_total != null ? (
+          <span>
+            {outcome.pages_verified ?? 0}/{outcome.pages_total} pages
+          </span>
+        ) : null}
+        {outcome.pages_withheld_count ? (
+          <span className="text-violet-700">{outcome.pages_withheld_count} withheld</span>
+        ) : null}
       </div>
     </div>
   );

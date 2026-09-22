@@ -12,6 +12,8 @@ const styles: Record<UiReportStatus, string> = {
   failed: "border-rose-200 bg-rose-50 text-rose-700",
   reprocess: "border-violet-200 bg-violet-50 text-violet-700",
   processing: "border-sky-200 bg-sky-50 text-sky-700",
+  blocked: "border-violet-200 bg-violet-50 text-violet-700",
+  partial: "border-amber-200 bg-amber-50 text-amber-800",
 };
 
 export default function StatusBadge({ status, className = "" }: StatusBadgeProps) {

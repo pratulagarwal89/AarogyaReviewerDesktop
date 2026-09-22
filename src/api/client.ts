@@ -31,6 +31,29 @@ export interface DocumentListItem {
   };
 }
 
+/**
+ * pending   — queued, not yet attempted
+ * succeeded — every routed page transcribed
+ * partial   — some pages withheld by the privacy gate, usable content stored
+ * blocked   — every page withheld; nothing transmitted, nothing stored
+ * failed    — the extraction itself errored
+ *
+ * `blocked` is NOT a failure: it is the redaction pipeline working as designed.
+ * The UI must keep the two distinguishable.
+ */
+export type ImagingExtractionStatus =
+  | 'pending'
+  | 'succeeded'
+  | 'partial'
+  | 'blocked'
+  | 'failed';
+
+export interface ImagingWithheldPage {
+  page?: number;
+  reason?: string;
+  detail?: string;
+}
+
 export interface LabelValuePair {
   label: string;
   value: string;
@@ -62,6 +85,25 @@ export interface DocumentDetail {
   lab_summary?: string;
   extracted_values?: Record<string, unknown>;
   abnormal_details?: Record<string, unknown>;
+  /**
+   * The imaging record this document graduated to, joined by the backend the
+   * same way the lab record above is. Present only for imaging documents, and
+   * that presence is what selects the imaging lens on the review screen.
+   *
+   * For imaging the processed clinical representation is the faithful Markdown
+   * transcription — there are no structured values, by design.
+   */
+  imaging_report_id?: string;
+  imaging_extraction_status?: ImagingExtractionStatus;
+  imaging_report_date?: string;
+  imaging_report_markdown?: string;
+  imaging_administrative_details?: string;
+  imaging_lane?: string;
+  imaging_pages_total?: number;
+  imaging_pages_verified?: number;
+  /** Why the privacy gate refused a page. Reason codes only, never content. */
+  imaging_pages_withheld?: ImagingWithheldPage[];
+  imaging_updated_at?: string;
   /** Present once the backend adds verified_by/verified_at columns + /verify endpoint. */
   verified_by?: string | null;
   verified_at?: string | null;
@@ -120,11 +162,35 @@ export interface ReviewLabReport {
   updated_at: string;
 }
 
+/**
+ * An imaging record in the profile's bundle. The transcription body is
+ * deliberately NOT here — the list only needs to say whether there is one; the
+ * review screen fetches it per document.
+ */
+export interface ReviewImagingReport {
+  id: string;
+  profile_id: string;
+  document_source?: string;
+  report_date?: string;
+  extraction_status: ImagingExtractionStatus;
+  lane?: string;
+  pages_total?: number;
+  pages_verified?: number;
+  has_markdown: boolean;
+  pages_withheld_count: number;
+  status?: string;
+  document_filename?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ReviewBundle {
   profile: ReviewProfileSummary;
   user_intake_form: ReviewUserIntakeForm;
   patient_history: PatientHistoryData | Record<string, unknown> | unknown;
   lab_reports: ReviewLabReport[]; // Cleared client-side for intake-only review; lab tab uses empty list until re-enabled.
+  /** Absent from an older backend; treat as empty rather than failing the screen. */
+  imaging_reports?: ReviewImagingReport[];
   documents: DocumentListItem[];
 }
 
@@ -326,7 +392,18 @@ function getReprocessBaseUrl(): string {
 }
 
 export type ReprocessScope = 'full' | 'reuse_ocr' | 'stages';
-export type ReprocessStage = 'patient_name' | 'profile_id' | 'document_type' | 'lab_values';
+/**
+ * `imaging` re-runs the imaging transcription for a graduated imaging record.
+ * It is a stage rather than a scope for the same reason `lab_values` is: both
+ * re-derive ONE finalized record's clinical content and leave the intake stages
+ * — profile, patient, report date — exactly where they were.
+ */
+export type ReprocessStage =
+  | 'patient_name'
+  | 'profile_id'
+  | 'document_type'
+  | 'lab_values'
+  | 'imaging';
 
 export interface ReprocessRequest {
   scope: ReprocessScope;
@@ -355,6 +432,28 @@ export interface ReprocessLabValuesOutcome {
   error?: string;
 }
 
+/**
+ * What the backend reports back for an imaging stage. The run waits for the
+ * worker, so `extraction_status` is the real outcome of this run — not just
+ * "queued".
+ */
+export interface ReprocessImagingOutcome {
+  stage: 'imaging';
+  /** queued → completed | still_running | skipped | gone. */
+  status: 'queued' | 'completed' | 'still_running' | 'skipped' | 'gone' | string;
+  reason?: string;
+  imaging_report_id?: string;
+  previous_extraction_status?: ImagingExtractionStatus;
+  extraction_status?: ImagingExtractionStatus;
+  lane?: string;
+  pages_total?: number;
+  pages_verified?: number;
+  pages_withheld_count?: number;
+  has_markdown?: boolean;
+  markdown_chars?: number;
+  error?: string;
+}
+
 export interface ReprocessDriftWarning {
   kind: 'document_type_drift' | 'profile_id_drift' | string;
   before?: string;
@@ -377,6 +476,7 @@ export interface ReprocessRun {
   outcomes?: {
     stages?: ReprocessStageOutcome[];
     lab_values?: ReprocessLabValuesOutcome | null;
+    imaging?: ReprocessImagingOutcome | null;
   } | null;
   drift_warnings?: ReprocessDriftWarning[] | null;
   started_at?: string | null;
